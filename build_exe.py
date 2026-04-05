@@ -1,3 +1,9 @@
+# ====================================================================
+# build_exe.py — Build script សម្រាប់ VT_Download
+# របៀបប្រើ: python build_exe.py
+# លទ្ធផល:  dist/VT_Download.exe  (file តែមួយ)
+# ====================================================================
+
 import os
 import sys
 import shutil
@@ -6,35 +12,53 @@ import urllib.request
 import zipfile
 import logging
 
-APP_NAME = "VT_Download"
-ENTRY_SCRIPT = "video_downloader_pro.py"
+# ──────────────────────────────────────────────
+# ការកំណត់ឈ្មោះ app និង file ចំបង
+# ──────────────────────────────────────────────
+APP_NAME    = "VT_Download"           # ឈ្មោះ EXE ដែល output
+ENTRY_SCRIPT = "video_downloader_pro.py"  # script ចំបង (entry point)
 
-LOGO_PNG = "logo.png"
-LOGO_ICO = "logo.ico"
-YTDLP_EXE = "yt-dlp.exe"
-FFMPEG_EXE = "ffmpeg.exe"
-FFPROBE_EXE = "ffprobe.exe"
+LOGO_PNG  = "logo.png"       # logo ដើម (PNG)
+LOGO_ICO  = "logo.ico"       # logo សម្រាប់ icon EXE (ICO)
+YTDLP_EXE   = "yt-dlp.exe"  # tool ដោនឡូត video
+FFMPEG_EXE  = "ffmpeg.exe"   # tool encode/decode video
+FFPROBE_EXE = "ffprobe.exe"  # tool ពិនិត្យ media info
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-DIST = os.path.join(ROOT, "dist")
-BUILD = os.path.join(ROOT, "build")
-SPEC = os.path.join(ROOT, f"{APP_NAME}.spec")
-BUILD_LOG = os.path.join(ROOT, "build.log")
+# ──────────────────────────────────────────────
+# Path folder សំខាន់ៗ
+# ──────────────────────────────────────────────
+ROOT      = os.path.dirname(os.path.abspath(__file__))  # folder គម្រោង
+DIST      = os.path.join(ROOT, "dist")                  # folder output
+BUILD     = os.path.join(ROOT, "build")                 # folder build ชั่วคราว
+SPEC      = os.path.join(ROOT, f"{APP_NAME}.spec")      # file spec របស់ PyInstaller
+BUILD_LOG = os.path.join(ROOT, "build.log")             # log file
 
+# ──────────────────────────────────────────────
+# ការ log សម្រាប់ terminal និង file
+# ──────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s: %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(BUILD_LOG, mode="w", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),                          # print ទៅ terminal
+        logging.FileHandler(BUILD_LOG, mode="w", encoding="utf-8"), # save ទៅ build.log
     ],
 )
 log = logging.getLogger("builder")
 
+
+# ──────────────────────────────────────────────
+# run(): run command ហើយ check error
+# ──────────────────────────────────────────────
 def run(cmd):
     log.info("RUN: %s", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
+
+# ──────────────────────────────────────────────
+# clean(): លុប folder build/dist/spec ចាស់
+#          ដើម្បី build ថ្មីស្អាត
+# ──────────────────────────────────────────────
 def clean():
     for p in (DIST, BUILD):
         if os.path.isdir(p):
@@ -47,10 +71,19 @@ def clean():
         except Exception:
             pass
 
+
+# ──────────────────────────────────────────────
+# download(): download file ពី URL ទៅ disk
+# ──────────────────────────────────────────────
 def download(url, out):
     log.info("Download: %s -> %s", url, out)
     urllib.request.urlretrieve(url, out)
 
+
+# ──────────────────────────────────────────────
+# ensure_ytdlp(): download yt-dlp.exe ប្រសិនបើ
+#                 មិនទាន់មាន
+# ──────────────────────────────────────────────
 def ensure_ytdlp():
     if os.path.exists(YTDLP_EXE):
         log.info("✓ %s exists", YTDLP_EXE)
@@ -60,6 +93,11 @@ def ensure_ytdlp():
         YTDLP_EXE,
     )
 
+
+# ──────────────────────────────────────────────
+# ensure_ffmpeg(): download ffmpeg + ffprobe
+#                  ពី zip ហើយ extract
+# ──────────────────────────────────────────────
 def ensure_ffmpeg():
     if os.path.exists(FFMPEG_EXE) and os.path.exists(FFPROBE_EXE):
         log.info("✓ %s and %s exist", FFMPEG_EXE, FFPROBE_EXE)
@@ -78,16 +116,21 @@ def ensure_ffmpeg():
                 log.info("Extracted: %s", base)
 
     try:
-        os.remove(zip_path)
+        os.remove(zip_path)  # លុប zip ចោលបន្ទាប់ extract
     except Exception:
         pass
 
     if not os.path.exists(FFMPEG_EXE) or not os.path.exists(FFPROBE_EXE):
         raise RuntimeError("ffmpeg.exe/ffprobe.exe extraction failed.")
 
+
+# ──────────────────────────────────────────────
+# ensure_icon(): បំប្លែង logo.png → logo.ico
+#                ត្រូវការ:  pip install pillow
+# ──────────────────────────────────────────────
 def ensure_icon():
     if os.path.exists(LOGO_ICO):
-        return
+        return  # មានរួចហើយ មិនបំប្លែងម្តងទៀត
     if not os.path.exists(LOGO_PNG):
         log.warning("logo.png not found -> skipping ico generation.")
         return
@@ -99,23 +142,33 @@ def ensure_icon():
     except Exception as e:
         log.warning("Could not create logo.ico (install pillow): %s", e)
 
+
+# ──────────────────────────────────────────────
+# build(): function ចំបង — build EXE file
+#
+#   លទ្ធផល: dist/VT_Download.exe  (file តែមួយ)
+#   ملاحظة: --onefile បញ្ចូល tool ទាំងអស់ក្នុង
+#           EXE តែមួយ → ចែករំលែកបានងាយ
+# ──────────────────────────────────────────────
 def build():
     os.chdir(ROOT)
 
     if not os.path.exists(ENTRY_SCRIPT):
         raise FileNotFoundError(f"Missing {ENTRY_SCRIPT} in project folder.")
 
-    clean()
-    ensure_icon()
-    ensure_ytdlp()
-    ensure_ffmpeg()
+    clean()         # លុបចោល folder build ចាស់
+    ensure_icon()   # បំប្លែង logo.png → logo.ico
+    ensure_ytdlp()  # download yt-dlp.exe
+    ensure_ffmpeg() # download ffmpeg.exe + ffprobe.exe
 
-    # IMPORTANT: fixes missing playwright_stealth/js/* at runtime
+    # ── Collect playwright និង playwright_stealth ទាំងអស់
+    #    (ចាំបាច់ ព្រោះ playwright_stealth/js/* ត្រូវ bundle ផង)
     collect_all = [
         "--collect-all", "playwright_stealth",
         "--collect-all", "playwright",
     ]
 
+    # ── Hidden imports ដែល PyInstaller រកមិនឃើញដោយស្វ័យប្រវត្តិ
     hidden = [
         "--hidden-import", "playwright.sync_api",
         "--hidden-import", "playwright_stealth",
@@ -123,6 +176,7 @@ def build():
         "--hidden-import", "playwright_stealth.stealth_sync",
     ]
 
+    # ── Data files បញ្ចូលក្នុង EXE (logo + tools)
     add_data = []
     if os.path.exists(LOGO_PNG):
         add_data += ["--add-data", f"{LOGO_PNG};."]
@@ -133,33 +187,27 @@ def build():
         if os.path.exists(tool):
             add_data += ["--add-data", f"{tool};."]
 
+    # ── PyInstaller command
+    #    --onefile  = output ជា EXE file តែមួយ (ឃើញ file តិច)
+    #    --windowed = មិនបង្ហាញ console/terminal window
+    #    --noconfirm = overwrite dist ដោយមិន confirm
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
-        "--onedir",
+        "--onefile",   # ← file តែមួយ (ងាយចែករំលែក)
         "--windowed",
         "--name", APP_NAME,
     ]
 
     if os.path.exists(LOGO_ICO):
-        cmd += ["--icon", LOGO_ICO]
+        cmd += ["--icon", LOGO_ICO]  # ដាក់ icon ឱ្យ EXE
 
     cmd += add_data + hidden + collect_all + [ENTRY_SCRIPT]
     run(cmd)
 
-    # Copy tools next to exe for reliability
-    out_dir = os.path.join(DIST, APP_NAME)
-    for tool in (YTDLP_EXE, FFMPEG_EXE, FFPROBE_EXE):
-        src = os.path.join(ROOT, tool)
-        dst = os.path.join(out_dir, tool)
-        if os.path.exists(src):
-            try:
-                shutil.copy2(src, dst)
-                log.info("Copied: %s -> %s", tool, dst)
-            except Exception as e:
-                log.warning("Copy failed %s: %s", tool, e)
-
-    log.info("DONE. Output: %s", os.path.join(out_dir, f"{APP_NAME}.exe"))
+    # ── Build រួចរាល់ — output path
+    out_exe = os.path.join(DIST, f"{APP_NAME}.exe")
+    log.info("DONE. Output: %s", out_exe)
     log.info("Log: %s", BUILD_LOG)
 
 
