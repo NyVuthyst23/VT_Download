@@ -2,13 +2,14 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║          VT_Download — Video Transformer Module              ║
 ║                                                              ║
-║  Batch-process videos to create unique visual fingerprints   ║
-║  for automated editing workflows.                            ║
+║  Batch-process videos to remove copyright fingerprints       ║
+║  and create visually distinct versions for content creators. ║
 ║                                                              ║
 ║  Transformations applied:                                    ║
 ║    • Horizontal Flip (hflip)                                 ║
 ║    • Auto-Crop & Zoom (scale 110% + center crop)             ║
-║    • Speed 1.05x (setpts + atempo, no audio distortion)      ║
+║    • Speed 1.05x (setpts + atempo; pitch stable during       ║
+║      speed change, then separately shifted +2 semitones)     ║
 ║    • Audio Pitch +2 semitones (asetrate + aresample)         ║
 ║    • Color Correction (brightness/contrast/saturation)       ║
 ║    • Metadata Removal (strip all EXIF/original metadata)     ║
@@ -55,6 +56,10 @@ COLORS = {
 # Supported video formats for batch processing
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v", ".ts"}
 
+# Encoding quality settings
+VIDEO_CRF = "18"        # CRF 18 = high quality (lower = better; 18 is near-lossless)
+AUDIO_BITRATE = "192k"  # Audio bitrate for AAC output
+
 logger = logging.getLogger("video_transformer")
 
 
@@ -92,10 +97,10 @@ def build_ffmpeg_filter(speed: float = 1.05) -> tuple[str, str]:
     Build FFmpeg video and audio filter strings for all transformations.
 
     Video chain:
-      hflip  →  scale 110%  →  crop to original size (center)  →  setpts for speed
+      hflip  →  scale 110%  →  crop to original size (center)  →  setpts for speed  →  eq (color)
 
     Audio chain:
-      atempo for speed  →  asetrate for pitch shift (+2 semitones)  →  aresample to restore rate
+      atempo (speed, pitch unchanged during speed)  →  asetrate (pitch +2 semitones)  →  aresample
 
     Returns (vf_string, af_string).
     """
@@ -214,8 +219,8 @@ class VideoTransformerWindow(ctk.CTkToplevel):
         transforms = [
             ("↔️", "Horizontal Flip (hflip)"),
             ("🔲", "Auto-Crop & Zoom  (scale 110% → center crop)"),
-            ("⚡", "Speed ×1.05  (setpts + atempo, pitch preserved)"),
-            ("🎵", "Audio Pitch +2 semitones  (asetrate + aresample)"),
+            ("⚡", "Speed ×1.05  (setpts + atempo, pitch stable during speed change)"),
+            ("🎵", "Audio Pitch +2 semitones  (asetrate + aresample, applied after speed)"),
             ("🎨", "Color Correction  (brightness +5%, contrast +10%, saturation +10%)"),
             ("🗑️", "Metadata Removal  (strip all EXIF / original metadata)"),
         ]
@@ -487,9 +492,9 @@ class VideoTransformerWindow(ctk.CTkToplevel):
             "-map_metadata", "-1",         # strip all metadata
             "-c:v", "libx264",             # re-encode video (required for filters)
             "-preset", "fast",             # encoding speed/quality trade-off
-            "-crf", "18",                  # high quality (lower = better, 18 is near-lossless)
+            "-crf", VIDEO_CRF,             # high quality (lower = better, 18 is near-lossless)
             "-c:a", "aac",                 # re-encode audio
-            "-b:a", "192k",               # audio bitrate
+            "-b:a", AUDIO_BITRATE,        # audio bitrate
             "-movflags", "+faststart",    # web-optimized MP4
             out_path,
         ]
