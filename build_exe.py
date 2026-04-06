@@ -17,6 +17,7 @@ import logging
 # ──────────────────────────────────────────────
 APP_NAME    = "VT_Download"           # ឈ្មោះ EXE ដែល output
 ENTRY_SCRIPT = "video_downloader_pro.py"  # script ចំបង (entry point)
+TRANSFORMER_SCRIPT = "video_transformer.py"  # Video Transformer module
 
 LOGO_PNG  = "logo.png"       # logo ដើម (PNG)
 LOGO_ICO  = "logo.ico"       # logo សម្រាប់ icon EXE (ICO)
@@ -174,6 +175,7 @@ def build():
         "--hidden-import", "playwright_stealth",
         "--hidden-import", "playwright_stealth.stealth",
         "--hidden-import", "playwright_stealth.stealth_sync",
+        "--hidden-import", "video_transformer",
     ]
 
     # ── Data files បញ្ចូលក្នុង EXE (logo + tools)
@@ -182,6 +184,10 @@ def build():
         add_data += ["--add-data", f"{LOGO_PNG};."]
     if os.path.exists(LOGO_ICO):
         add_data += ["--add-data", f"{LOGO_ICO};."]
+
+    # Include video_transformer.py module in the bundle
+    if os.path.exists(TRANSFORMER_SCRIPT):
+        add_data += ["--add-data", f"{TRANSFORMER_SCRIPT};."]
 
     for tool in (YTDLP_EXE, FFMPEG_EXE, FFPROBE_EXE):
         if os.path.exists(tool):
