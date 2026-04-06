@@ -38,6 +38,10 @@ try:
 except ImportError:
     winsound = None
 from PIL import Image, ImageTk
+try:
+    from video_transformer import VideoTransformerWindow
+except ImportError:
+    VideoTransformerWindow = None
 
 # ─── Theme Configuration ─────────────────────────────────────────────
 ctk.set_appearance_mode("dark")
@@ -1901,11 +1905,35 @@ del "%~f0"
             width=120, height=50,
             command=self._open_cutter
         )
-        split_btn.pack(side="left")
+        split_btn.pack(side="left", padx=(0, 16))
         ToolTip(split_btn, t("tooltip_splitter", self._lang))
+
+        transform_btn = ctk.CTkButton(
+            btn_row,
+            text="🎬 Transformer",
+            font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
+            fg_color=COLORS["bg_input"],
+            hover_color=COLORS["neon_purple"],
+            corner_radius=14,
+            width=140, height=50,
+            command=self._open_transformer
+        )
+        transform_btn.pack(side="left")
+        ToolTip(transform_btn, "Open Video Transformer — Remove Copyright Fingerprints")
 
     def _open_cutter(self):
         VideoCutterWindow(self, lang=self._lang)
+
+    def _open_transformer(self):
+        if VideoTransformerWindow is None:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Module Not Found",
+                "video_transformer.py is missing.\n"
+                "Please place video_transformer.py in the same folder as this application."
+            )
+            return
+        VideoTransformerWindow(self, lang=self._lang)
 
 
 
